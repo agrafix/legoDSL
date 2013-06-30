@@ -187,36 +187,36 @@ runDef funMap env (FunDefinition _ _ _ body) =
 
 runStmt :: FunMap -> Env -> Stmt -> IO ()
 runStmt funMap env (If condR t f) =
-    do (NBool cond) <- runV funMap env condR
+    do (NBool cond) <- runT funMap env condR
        if cond
        then mapM_ (runStmt funMap env) t
        else mapM_ (runStmt funMap env) f
 runStmt funMap env l@(While condR loop) =
-    do (NBool cond) <- runV funMap env condR
+    do (NBool cond) <- runT funMap env condR
        if cond
        then do mapM_ (runStmt funMap env) loop
                runStmt funMap env l
        else return ()
-runStmt funMap env (DeclVar (V (VarP p))) =
+runStmt funMap env (DeclVar _ (VarP p)) =
     do defineVar env p NVoid
        return ()
-runStmt funMap env (AssignVar (V (VarP p)) valR) =
-    do val <- runV funMap env valR
+runStmt funMap env (AssignVar (VarP p) valR) =
+    do val <- runT funMap env valR
        setVar env p val
        return ()
 
 runStmt funMap env (Eval v) =
-    do _ <- runV funMap env v
+    do _ <- runT funMap env v
        return ()
 runStmt funMap env (FunReturn v) =
-    do val <- runV funMap env v
+    do val <- runT funMap env v
        defineVar env "__funReturnVal" val
        return ()
 
 runV :: FunMap -> Env -> V a -> IO NXTVal
 runV funMap env ct = runT funMap env (unpack ct)
 
-runT :: FunMap -> Env -> T a -> IO NXTVal
+runT :: FunMap -> Env -> T -> IO NXTVal
 runT _ _ Void = return NVoid
 runT _ env (VarP p) = getVar env p
 runT _ env (Lit i) = return $ NInt i
@@ -225,19 +225,19 @@ runT _ env (StrLit str) = return $ NStr str
 runT _ env (BoolLit b) = return $ NBool b
 
 runT funMap env (CastOp "cast2int" val) =
-     do evaluated <- runV funMap env val
+     do evaluated <- runT funMap env val
         case evaluated of
           NFloat f -> return $ NInt $ floor f
           _ -> error "Invalid cast."
 runT funMap env (CastOp "cast2float" val) =
-     do evaluated <- runV funMap env val
+     do evaluated <- runT funMap env val
         case evaluated of
           NInt i -> return $ NFloat $ fromIntegral i
           _ -> error "Invalid cast."
 
 runT funMap env (BinOp op xR yR) =
-    do x <- runV funMap env xR
-       y <- runV funMap env yR
+    do x <- runT funMap env xR
+       y <- runT funMap env yR
 
        case (x, op, y) of
          (NInt a, BAdd, NInt b) -> return $ NInt (a + b)
@@ -271,36 +271,36 @@ runT funMap env (FunCall name) =
     apply funMap name []
 
 runT funMap env (FunCall1 name a) =
-    do aR <- runV funMap env a
+    do aR <- runT funMap env a
        apply funMap name [aR]
 
 runT funMap env (FunCall2 name a b) =
-    do aR <- runV funMap env a
-       bR <- runV funMap env b
+    do aR <- runT funMap env a
+       bR <- runT funMap env b
        apply funMap name [aR, bR]
 
 runT funMap env (FunCall3 name a b c) =
-    do aR <- runV funMap env a
-       bR <- runV funMap env b
-       cR <- runV funMap env c
+    do aR <- runT funMap env a
+       bR <- runT funMap env b
+       cR <- runT funMap env c
        apply funMap name [aR, bR, cR]
 
 runT funMap env (FunCall4 name a b c d) =
-    do aR <- runV funMap env a
-       bR <- runV funMap env b
-       cR <- runV funMap env c
-       dR <- runV funMap env d
+    do aR <- runT funMap env a
+       bR <- runT funMap env b
+       cR <- runT funMap env c
+       dR <- runT funMap env d
        apply funMap name [aR, bR, cR, dR]
 
 runT _ env t = error $ "Not implemented:" ++ (prettyT t)
 
-reqV (V (VarP p)) = p
-reqV x = error $ "Require a variable, but got: " ++ (prettyV x)
+reqV (VarP p) = p
+reqV x = error $ "Require a variable, but got: " ++ (prettyT x)
 
 getArgs funMap funName =
     case HM.lookup funName (fm_funs funMap) of
       Just (FunDefinition _ _ args _) ->
-          map (\(DeclVar arg) -> reqV arg) args
+          map (\(DeclVar _ arg) -> reqV arg) args
       Nothing ->
           error $ "Function " ++ funName ++ " is not defined."
 

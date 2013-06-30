@@ -50,40 +50,40 @@ prettyFD :: FunDefinition -> String
 prettyFD (FunDefinition name ty args body) =
     ty ++ " " ++ name ++ "(" ++ arglist ++ ") {" ++ (concatMap prettyStmt body) ++ "}"
     where
-      arglist = intercalate ", " $ map (\(DeclVar arg) -> ((getCType arg) ++ " " ++ (prettyV arg))) args
+      arglist = intercalate ", " $ map (\(DeclVar ty arg) -> (ty ++ " " ++ (prettyT arg))) args
 
 prettyStmt :: Stmt -> String
 prettyStmt (If cond t f) =
-    "if (" ++ (prettyV cond) ++ ") {"
+    "if (" ++ (prettyT cond) ++ ") {"
     ++ (concatMap prettyStmt t) ++ "}"
     ++ (case f of
           [] -> ""
           _ -> "else { " ++ (concatMap prettyStmt f) ++ "}"
        )
 prettyStmt (While cond loop) =
-    "while (" ++ (prettyV cond) ++ ") {"
+    "while (" ++ (prettyT cond) ++ ") {"
     ++ (concatMap prettyStmt loop) ++ "}"
-prettyStmt (DeclVar var@(V (VarP name))) =
-    (getCType var) ++ " " ++ (prettyV var) ++ ";"
-prettyStmt (AssignVar v@(V (VarP pointer)) val) =
-    (prettyV v) ++ " = " ++ (prettyV val) ++ ";"
+prettyStmt (DeclVar ty var@(VarP name)) =
+    ty ++ " " ++ (prettyT var) ++ ";"
+prettyStmt (AssignVar v@(VarP pointer) val) =
+    (prettyT v) ++ " = " ++ (prettyT val) ++ ";"
 prettyStmt (Eval something) =
-    (prettyV something) ++ ";"
+    (prettyT something) ++ ";"
 prettyStmt (FunReturn val) =
-    "return " ++ prettyV val ++ ";"
+    "return " ++ prettyT val ++ ";"
 
 prettyStmt _ = error "Error: Invalid syntax tree"
 
 instance (Num a, Typeable a) => Num (V a) where
-    x + y = pack $ BinOp BAdd x y
-    x * y = pack $ BinOp BMul x y
-    x - y = pack $ BinOp BSub x y
+    x + y = pack $ BinOp BAdd (unpack x) (unpack y)
+    x * y = pack $ BinOp BMul (unpack x) (unpack y)
+    x - y = pack $ BinOp BSub (unpack x) (unpack y)
     abs x = error "Not implemented"
     signum x = error "Not implemented"
     fromInteger = pack . Lit . fromInteger
 
 instance Fractional (V Float) where
-    x / y = pack $ BinOp BDiv x y
+    x / y = pack $ BinOp BDiv (unpack x) (unpack y)
     fromRational = pack . Rat . fromRational
 
 instance IsString (V String) where
@@ -91,39 +91,39 @@ instance IsString (V String) where
 
 -- | logic and
 (&&) :: V Bool -> V Bool -> V Bool
-a && b = pack $ BinOp BAnd a b
+a && b = pack $ BinOp BAnd (unpack a) (unpack b)
 
 -- | logic or
 (||) :: V Bool -> V Bool -> V Bool
-a || b = pack $ BinOp BOr a b
+a || b = pack $ BinOp BOr (unpack a) (unpack b)
 
 -- | compare two numbers for >
-(>) :: (Num a) => V a -> V a -> V Bool
-a > b = pack $ BinOp BLt a b
+(>) :: (Num a, Typeable a) => V a -> V a -> V Bool
+a > b = pack $ BinOp BLt (unpack a) (unpack b)
 
 -- | compare two numbers for <
-(<) :: (Num a) => V a -> V a -> V Bool
-a < b = pack $ BinOp BSt a b
+(<) :: (Num a, Typeable a) => V a -> V a -> V Bool
+a < b = pack $ BinOp BSt (unpack a) (unpack b)
 
 -- | compare two numbers for >=
-(>=) :: (Num a) => V a -> V a -> V Bool
-a >= b = pack $ BinOp BLEq a b
+(>=) :: (Num a, Typeable a) => V a -> V a -> V Bool
+a >= b = pack $ BinOp BLEq (unpack a) (unpack b)
 
 -- | compare two numbers for <=
-(<=) :: (Num a) => V a -> V a -> V Bool
-a <= b = pack $ BinOp BSEq a b
+(<=) :: (Num a, Typeable a) => V a -> V a -> V Bool
+a <= b = pack $ BinOp BSEq (unpack a) (unpack b)
 
 -- | the c++ == operation
-(==) :: V a -> V a -> V Bool
-a == b = pack $ BinOp BEq a b
+(==) :: (Typeable a) => V a -> V a -> V Bool
+a == b = pack $ BinOp BEq (unpack a) (unpack b)
 
 -- | the c++ != operation
-(/=) :: V a -> V a -> V Bool
-a /= b = pack $ BinOp BNEq a b
+(/=) :: (Typeable a) => V a -> V a -> V Bool
+a /= b = pack $ BinOp BNEq (unpack a) (unpack b)
 
 -- | string concatination
 (&) :: V String -> V String -> V String
-a & b = pack $ FunCall2 "StrCat" a b
+a & b = pack $ FunCall2 "StrCat" (unpack a) (unpack b)
 
 -- | Define an external function. Don't forget to add a type signature
 defExt :: (Typeable a) => String -> V a
@@ -143,12 +143,12 @@ false = pack $ BoolLit False
 
 -- | Cast an int to a float
 castFloat :: V Int -> V Float
-castFloat x = pack $ CastOp "cast2float" x
+castFloat x = pack $ CastOp "cast2float" $ unpack x
 
 
 -- | Cast a float to an int
 castInt :: V Float -> V Int
-castInt x = pack $ CastOp "cast2int" x
+castInt x = pack $ CastOp "cast2int" $ unpack x
 
 -- | Void. Do nothing
 void :: V ()
@@ -157,7 +157,7 @@ void = pack $ Void
 -- | Execute a void statement
 (.!) :: (Typeable a) => V a -> FunM ()
 (.!) stmt =
-    tell [Eval stmt]
+    tell [Eval $ unpack stmt]
 
 -- | non monadic variable assignment
 ($=) :: (Typeable a) => V a -> V a -> FunM ()
@@ -168,7 +168,7 @@ varP $= nonMonadic =
 (#=) :: (Typeable a) => V a -> FunM (V a) -> FunM ()
 v@(V (VarP pointer)) #= val =
     do rVal <- val
-       tell [AssignVar v rVal]
+       tell [AssignVar (unpack v) (unpack rVal)]
 (#=) _ _ = error "LH must be variable!"
 
 newtype FResult a = FResult { unFResult :: a }
@@ -176,7 +176,7 @@ newtype FResult a = FResult { unFResult :: a }
 -- | define a functions return value
 ret :: (Typeable a) => V a -> FunM (FResult (V a))
 ret val =
-    do tell [FunReturn val]
+    do tell [FunReturn $ unpack val]
        return $ FResult val
 
 -- | the c++ while construct
@@ -184,7 +184,7 @@ while :: V Bool -> FunM () -> FunM ()
 while cond loop =
     do orig <- get
        (_, _, loopOut) <- lift $ runRWST loop "loop" (orig + 200)
-       tell [While cond loopOut]
+       tell [While (unpack cond) loopOut]
 
 -- | when
 when :: V Bool -> FunM () -> FunM ()
@@ -197,7 +197,7 @@ ifThenElse cond t f =
     do orig <- get
        (_, _, tOut) <- lift $ runRWST t "ifTrue" (orig + 200)
        (_, _, fOut) <- lift $ runRWST f "ifFalse" (orig + 200)
-       tell [If cond tOut fOut]
+       tell [If (unpack cond) tOut fOut]
 
 getCType :: (Typeable a) => V a -> String
 getCType a
@@ -228,7 +228,7 @@ newVar =
            var :: V a
            var = V (VarP $ "v" ++ show name)
        put name
-       tell [DeclVar var]
+       tell [dVar var]
        --tell ((getCType var) ++ " " ++ (prettyV var) ++ ";")
        return $ var
 
@@ -241,13 +241,6 @@ newFun =
            fun = FunP $ "f" ++ (show name)
        put name
        return $ pack fun
-
-funTpl funN fType fArgs fBody =
-    do tell $ funHeader ++ ";"
-       tell $ funHeader ++ " { " ++ (concatMap prettyStmt fBody) ++ " }"
-    where
-      funHeader = fType ++ " " ++ funN
-                  ++ "(" ++ (intercalate "," $ map (\(t, v) -> t ++ " " ++ v) fArgs) ++ ")"
 
 class (Typeable a) => FunDef a b | b -> a  where
     -- | Define a declared function
@@ -264,7 +257,7 @@ instance forall a b. (Typeable a, Typeable b) => FunDef (V a -> V b) (V a -> Fun
         do let var :: V a
                var = V (VarP "p1")
            (x, _, out) <- runRWST (funAction var) (prettyV name) 0
-           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [DeclVar var] out]
+           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [dVar var] out]
            return ()
 
 instance forall a b c.  (Typeable a, Typeable b, Typeable c) => FunDef (V a -> V b -> V c) ((V a -> V b -> FunM (FResult (V c)))) where
@@ -274,7 +267,7 @@ instance forall a b c.  (Typeable a, Typeable b, Typeable c) => FunDef (V a -> V
                var2 :: V b
                var2 = V (VarP "p2")
            (x, _, out) <- runRWST (funAction var var2) (prettyV name) 0
-           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [DeclVar var, DeclVar var2] out]
+           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [dVar var, dVar var2] out]
            return ()
 
 instance forall a b c d.  (Typeable a, Typeable b, Typeable c, Typeable d) => FunDef (V a -> V b -> V c -> V d) ((V a -> V b -> V c -> FunM (FResult (V d)))) where
@@ -286,7 +279,7 @@ instance forall a b c d.  (Typeable a, Typeable b, Typeable c, Typeable d) => Fu
                var3 :: V c
                var3 = V (VarP "p3")
            (x, _, out) <- runRWST (funAction var var2 var3) (prettyV name) 0
-           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [DeclVar var, DeclVar var2, DeclVar var3] out]
+           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [dVar var, dVar var2, dVar var3] out]
            return ()
 
 instance forall a b c d e.  (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e) => FunDef (V a -> V b -> V c -> V d -> V e) ((V a -> V b -> V c -> V d -> FunM (FResult (V e)))) where
@@ -300,8 +293,12 @@ instance forall a b c d e.  (Typeable a, Typeable b, Typeable c, Typeable d, Typ
                var4 :: V d
                var4 = V (VarP "p4")
            (x, _, out) <- runRWST (funAction var var2 var3 var4) (prettyV name) 0
-           tell [FunDefinition (prettyV name) (getCType $ unFResult x) [DeclVar var, DeclVar var2, DeclVar var3, DeclVar var4] out]
+           tell [FunDefinition (prettyV name) (getCType $ unFResult x)
+                                   [ dVar var, dVar var2, dVar var3, dVar var4] out]
            return ()
+
+dVar v =
+    DeclVar (getCType v) (unpack v)
 
 -- | Call a function with no arguments
 callF :: forall a. (Typeable a)
@@ -314,28 +311,28 @@ callF _ = error "Can only call functions!"
 callF1 :: forall a b. (Typeable a, Typeable b)
       => (V (V a -> V b)) -> V a -> (V b)
 callF1 fp@(V (FunP name)) arg =
-    pack $ FunCall1 (prettyV fp) arg
+    pack $ FunCall1 (prettyV fp) $ unpack arg
 callF1 _ _ = error "Can only call functions!"
 
 -- | Call a function with two arguments
 callF2 :: forall a b c. (Typeable a, Typeable b, Typeable c)
       => (V (V a -> V b -> V c)) -> V a -> V b -> (V c)
 callF2 fp@(V (FunP name)) arg1 arg2 =
-    pack $ FunCall2 (prettyV fp) arg1 arg2
+    pack $ FunCall2 (prettyV fp) (unpack arg1) (unpack arg2)
 callF2 _ _ _ = error "Can only call functions!"
 
 -- | Call a function with tree arguments
 callF3 :: forall a b c d. (Typeable a, Typeable b, Typeable c, Typeable d)
       => (V (V a -> V b -> V c -> V d)) -> V a -> V b -> V c -> V d
 callF3 fp@(V (FunP name)) arg1 arg2 arg3 =
-    pack $ FunCall3 (prettyV fp) arg1 arg2 arg3
+    pack $ FunCall3 (prettyV fp) (unpack arg1) (unpack arg2) (unpack arg3)
 callF3 _ _ _ _ = error "Can only call functions!"
 
 -- | Call a function with four arguments
 callF4 :: forall a b c d e. (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e)
       => (V (V a -> V b -> V c -> V d -> V e)) -> V a -> V b -> V c -> V d -> V e
 callF4 fp@(V (FunP name)) arg1 arg2 arg3 arg4 =
-    pack $ FunCall4 (prettyV fp) arg1 arg2 arg3 arg4
+    pack $ FunCall4 (prettyV fp) (unpack arg1) (unpack arg2) (unpack arg3) (unpack arg4)
 callF4 _ _ _ _ _ = error "Can only call functions!"
 
 vCallF fp = (.!)$ callF fp
@@ -359,18 +356,15 @@ mkProg filename prog =
 
 mkStdLib :: TopM ()
 mkStdLib =
-    do let var :: V Float
-           var = V (VarP "f")
+    do let var = (VarP "f")
            body = [FunReturn var]
-
-           var2 :: V Int
-           var2 = V (VarP "i")
+           var2 = (VarP "i")
            body2 = [FunReturn var2]
 
-       tell [FunDefinition "cast2int" "int"  [DeclVar var] body]
-       tell [FunDefinition "cast2float" "float" [DeclVar var2] body2]
+       tell [FunDefinition "cast2int" "int"  [DeclVar "float" var] body]
+       tell [FunDefinition "cast2float" "float" [DeclVar "int" var2] body2]
 
 -- | Define a function as main task
 setMain :: V a -> TopM ()
 setMain fp@(V (FunP name)) =
-    tell [FunDefinition "main" "task" [] [Eval $ callF fp]]
+    tell [FunDefinition "main" "task" [] [Eval $ unpack $ callF fp]]

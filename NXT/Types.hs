@@ -17,12 +17,12 @@ type FunM = RWST String [Stmt] Int TopM
 type TopM = RWST () [FunDefinition] Int IO
 
 data Stmt where
-   If :: (V Bool) -> [Stmt] -> [Stmt] -> Stmt
-   While :: (V Bool) -> [Stmt] -> Stmt
-   DeclVar :: Typeable a => (V a) -> Stmt
-   AssignVar :: Typeable a => (V a) -> (V a) -> Stmt
-   Eval :: Typeable a => (V a) -> Stmt
-   FunReturn :: Typeable a => (V a) -> Stmt
+   If :: T -> [Stmt] -> [Stmt] -> Stmt
+   While :: T -> [Stmt] -> Stmt
+   DeclVar :: String -> T -> Stmt
+   AssignVar :: T -> T -> Stmt
+   Eval :: T -> Stmt
+   FunReturn :: T -> Stmt
 
 data FunDefinition
    = FunDefinition
@@ -37,30 +37,30 @@ data BinOpT
    = BAdd | BSub | BMul | BDiv | BEq | BNEq | BLt | BSt | BLEq | BSEq | BAnd | BOr
     deriving (Show, Eq, Typeable)
 
-data T a where
-    Void :: T ()
-    FunP :: (Typeable a) => String -> T a
-    VarP :: (Typeable a) => String -> T a
-    Lit  :: (Typeable a) => Int -> T a
-    Rat  :: (Typeable a) => Float -> T a
-    StrLit :: (Typeable a) => String -> T a
-    BoolLit :: (Typeable a) => Bool -> T a
-    BinOp :: BinOpT -> (V c) -> (V c) -> T a
-    CastOp :: (Typeable a) => String -> (V b) -> T a
-    FunCall :: String -> T a
-    FunCall1 :: String -> V a -> T b
-    FunCall2 :: String -> V a -> V b -> T c
-    FunCall3 :: String -> V a -> V b -> V c -> T d
-    FunCall4 :: String -> V a -> V b -> V c -> V d -> T e
+data T where
+    Void :: T
+    FunP :: String -> T
+    VarP :: String -> T
+    Lit  :: Int -> T
+    Rat  :: Float -> T
+    StrLit :: String -> T
+    BoolLit :: Bool -> T
+    BinOp :: BinOpT -> T -> T -> T
+    CastOp :: String -> T -> T
+    FunCall :: String -> T
+    FunCall1 :: String -> T -> T
+    FunCall2 :: String -> T -> T -> T
+    FunCall3 :: String -> T -> T -> T -> T
+    FunCall4 :: String -> T -> T -> T -> T -> T
     deriving (Typeable)
 
 -- | wrapper for types
-data V a = Typeable a => V (T a) deriving (Typeable)
+data V a = Typeable a => V T deriving (Typeable)
 
-pack :: (Typeable a) => T a -> V a
+pack :: (Typeable a) => T -> V a
 pack = V
 
-unpack :: V a -> T a
+unpack :: V a -> T
 unpack (V a) = a
 
 prettyOp :: BinOpT -> String
@@ -80,7 +80,7 @@ prettyOp BAnd = "&&"
 prettyV :: V a -> String
 prettyV = prettyT . unpack
 
-prettyT :: T a -> String
+prettyT :: T -> String
 prettyT (Void) = "";
 prettyT (VarP p) = p
 prettyT (FunP f) = f
@@ -89,10 +89,10 @@ prettyT (Rat i) = show i
 prettyT (StrLit str) = show str
 prettyT (BoolLit True) = "true"
 prettyT (BoolLit False) = "false"
-prettyT (CastOp target val) = "(" ++ target ++ "(" ++ (prettyV val) ++ "))"
-prettyT (BinOp op x y) = "(" ++ (prettyV x) ++ (prettyOp op) ++ (prettyV y) ++ ")"
+prettyT (CastOp target val) = "(" ++ target ++ "(" ++ (prettyT val) ++ "))"
+prettyT (BinOp op x y) = "(" ++ (prettyT x) ++ (prettyOp op) ++ (prettyT y) ++ ")"
 prettyT (FunCall name) = name ++ "()"
-prettyT (FunCall1 name arg) = name ++ "(" ++ (prettyV arg) ++")"
-prettyT (FunCall2 name a b) = name ++ "(" ++ (prettyV a) ++", " ++ (prettyV b) ++ ")"
-prettyT (FunCall3 name a b c) = name ++ "(" ++ (prettyV a) ++", " ++ (prettyV b) ++ ", " ++ (prettyV c) ++ ")"
-prettyT (FunCall4 name a b c d) = name ++ "(" ++ (prettyV a) ++", " ++ (prettyV b) ++ ", " ++ (prettyV c) ++ ", " ++ (prettyV d) ++ ")"
+prettyT (FunCall1 name arg) = name ++ "(" ++ (prettyT arg) ++")"
+prettyT (FunCall2 name a b) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ")"
+prettyT (FunCall3 name a b c) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ", " ++ (prettyT c) ++ ")"
+prettyT (FunCall4 name a b c d) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ", " ++ (prettyT c) ++ ", " ++ (prettyT d) ++ ")"
