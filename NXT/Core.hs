@@ -46,34 +46,6 @@ import Data.String
 import Prelude hiding ((<), (>), (<=), (>=), (==), (/=), (&&), (||))
 import qualified Prelude as P
 
-prettyFD :: FunDefinition -> String
-prettyFD (FunDefinition name ty args body) =
-    ty ++ " " ++ name ++ "(" ++ arglist ++ ") {" ++ (concatMap prettyStmt body) ++ "}"
-    where
-      arglist = intercalate ", " $ map (\(DeclVar ty arg) -> (ty ++ " " ++ (prettyT arg))) args
-
-prettyStmt :: Stmt -> String
-prettyStmt (If cond t f) =
-    "if (" ++ (prettyT cond) ++ ") {"
-    ++ (concatMap prettyStmt t) ++ "}"
-    ++ (case f of
-          [] -> ""
-          _ -> "else { " ++ (concatMap prettyStmt f) ++ "}"
-       )
-prettyStmt (While cond loop) =
-    "while (" ++ (prettyT cond) ++ ") {"
-    ++ (concatMap prettyStmt loop) ++ "}"
-prettyStmt (DeclVar ty var@(VarP name)) =
-    ty ++ " " ++ (prettyT var) ++ ";"
-prettyStmt (AssignVar v@(VarP pointer) val) =
-    (prettyT v) ++ " = " ++ (prettyT val) ++ ";"
-prettyStmt (Eval something) =
-    (prettyT something) ++ ";"
-prettyStmt (FunReturn val) =
-    "return " ++ prettyT val ++ ";"
-
-prettyStmt _ = error "Error: Invalid syntax tree"
-
 instance (Num a, Typeable a) => Num (V a) where
     x + y = pack $ BinOp BAdd (unpack x) (unpack y)
     x * y = pack $ BinOp BMul (unpack x) (unpack y)
