@@ -123,7 +123,7 @@ a /= b = pack $ BinOp BNEq (unpack a) (unpack b)
 
 -- | string concatination
 (&) :: V String -> V String -> V String
-a & b = pack $ FunCall2 "StrCat" (unpack a) (unpack b)
+a & b = pack $ FunCall "StrCat" [(unpack a), (unpack b)]
 
 -- | Define an external function. Don't forget to add a type signature
 defExt :: (Typeable a) => String -> V a
@@ -304,35 +304,35 @@ dVar v =
 callF :: forall a. (Typeable a)
       => (V a) -> (V a)
 callF fp@(V (FunP name)) =
-    pack $ FunCall (prettyV fp)
+    pack $ FunCall (prettyV fp) []
 callF _ = error "Can only call functions!"
 
 -- | Call a function with one argument
 callF1 :: forall a b. (Typeable a, Typeable b)
       => (V (V a -> V b)) -> V a -> (V b)
 callF1 fp@(V (FunP name)) arg =
-    pack $ FunCall1 (prettyV fp) $ unpack arg
+    pack $ FunCall (prettyV fp) [unpack arg]
 callF1 _ _ = error "Can only call functions!"
 
 -- | Call a function with two arguments
 callF2 :: forall a b c. (Typeable a, Typeable b, Typeable c)
       => (V (V a -> V b -> V c)) -> V a -> V b -> (V c)
 callF2 fp@(V (FunP name)) arg1 arg2 =
-    pack $ FunCall2 (prettyV fp) (unpack arg1) (unpack arg2)
+    pack $ FunCall (prettyV fp) [(unpack arg1), (unpack arg2)]
 callF2 _ _ _ = error "Can only call functions!"
 
 -- | Call a function with tree arguments
 callF3 :: forall a b c d. (Typeable a, Typeable b, Typeable c, Typeable d)
       => (V (V a -> V b -> V c -> V d)) -> V a -> V b -> V c -> V d
 callF3 fp@(V (FunP name)) arg1 arg2 arg3 =
-    pack $ FunCall3 (prettyV fp) (unpack arg1) (unpack arg2) (unpack arg3)
+    pack $ FunCall (prettyV fp) [(unpack arg1), (unpack arg2), (unpack arg3)]
 callF3 _ _ _ _ = error "Can only call functions!"
 
 -- | Call a function with four arguments
 callF4 :: forall a b c d e. (Typeable a, Typeable b, Typeable c, Typeable d, Typeable e)
       => (V (V a -> V b -> V c -> V d -> V e)) -> V a -> V b -> V c -> V d -> V e
 callF4 fp@(V (FunP name)) arg1 arg2 arg3 arg4 =
-    pack $ FunCall4 (prettyV fp) (unpack arg1) (unpack arg2) (unpack arg3) (unpack arg4)
+    pack $ FunCall (prettyV fp) [(unpack arg1), (unpack arg2), (unpack arg3), (unpack arg4)]
 callF4 _ _ _ _ _ = error "Can only call functions!"
 
 vCallF fp = (.!)$ callF fp

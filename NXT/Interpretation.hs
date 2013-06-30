@@ -267,30 +267,9 @@ runT funMap env (BinOp op xR yR) =
          (NBool a, BOr, NBool b) -> return $ NBool (a || b)
          x -> error $ "Unknown operation: " ++ show x
 
-runT funMap env (FunCall name) =
-    apply funMap name []
-
-runT funMap env (FunCall1 name a) =
-    do aR <- runT funMap env a
-       apply funMap name [aR]
-
-runT funMap env (FunCall2 name a b) =
-    do aR <- runT funMap env a
-       bR <- runT funMap env b
-       apply funMap name [aR, bR]
-
-runT funMap env (FunCall3 name a b c) =
-    do aR <- runT funMap env a
-       bR <- runT funMap env b
-       cR <- runT funMap env c
-       apply funMap name [aR, bR, cR]
-
-runT funMap env (FunCall4 name a b c d) =
-    do aR <- runT funMap env a
-       bR <- runT funMap env b
-       cR <- runT funMap env c
-       dR <- runT funMap env d
-       apply funMap name [aR, bR, cR, dR]
+runT funMap env (FunCall name args) =
+    do evaled <- mapM (runT funMap env) args
+       apply funMap name evaled
 
 runT _ env t = error $ "Not implemented:" ++ (prettyT t)
 

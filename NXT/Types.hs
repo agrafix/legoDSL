@@ -11,6 +11,7 @@
 module NXT.Types where
 
 import Data.Typeable
+import Data.List (intercalate)
 import Control.Monad.RWS (RWST)
 
 type FunM = RWST String [Stmt] Int TopM
@@ -47,11 +48,7 @@ data T where
     BoolLit :: Bool -> T
     BinOp :: BinOpT -> T -> T -> T
     CastOp :: String -> T -> T
-    FunCall :: String -> T
-    FunCall1 :: String -> T -> T
-    FunCall2 :: String -> T -> T -> T
-    FunCall3 :: String -> T -> T -> T -> T
-    FunCall4 :: String -> T -> T -> T -> T -> T
+    FunCall :: String -> [T] -> T
     deriving (Typeable)
 
 -- | wrapper for types
@@ -91,8 +88,4 @@ prettyT (BoolLit True) = "true"
 prettyT (BoolLit False) = "false"
 prettyT (CastOp target val) = "(" ++ target ++ "(" ++ (prettyT val) ++ "))"
 prettyT (BinOp op x y) = "(" ++ (prettyT x) ++ (prettyOp op) ++ (prettyT y) ++ ")"
-prettyT (FunCall name) = name ++ "()"
-prettyT (FunCall1 name arg) = name ++ "(" ++ (prettyT arg) ++")"
-prettyT (FunCall2 name a b) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ")"
-prettyT (FunCall3 name a b c) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ", " ++ (prettyT c) ++ ")"
-prettyT (FunCall4 name a b c d) = name ++ "(" ++ (prettyT a) ++", " ++ (prettyT b) ++ ", " ++ (prettyT c) ++ ", " ++ (prettyT d) ++ ")"
+prettyT (FunCall name args) = name ++ "(" ++ (intercalate ", " $ map prettyT args) ++ ")"
