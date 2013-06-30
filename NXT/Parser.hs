@@ -31,17 +31,17 @@ condParser which =
 
 pFun :: Parser FunDefinition
 pFun =
-    funDef <$> ((pToken "function") *> skipSpace pIdent) <*> tupleParser (pIdent) <*> pBraces pStmt <* pSpaces
+    funDef <$> (skipSpace (pToken "function") *> skipSpace pIdent) <*> tupleParser (pIdent) <*> pBraces (pMany pStmt) <* pSpaces
     where
-      funDef name args body = (FunDefinition (T.unpack name) "dynamic") (map (\x -> DeclVar "dynamic" (VarP $ T.unpack x)) args) body
+      funDef name args body = (FunDefinition (T.unpack name) "dynamic") (map (\x -> DeclVar "dynamic" (VarP $ T.unpack x)) args) $ concat body
 
 pStmt :: Parser [Stmt]
 pStmt =
-    decl <$> skipSpace pIdent <* (pSym ';' *> pSpaces)
+    decl <$> (skipSpace (pToken "var") *> skipSpace pIdent) <* (pSym ';' *> pSpaces)
+    <|>
+    declAndAssign <$> (skipSpace (pToken "var") *> skipSpace pIdent) <*> (skipSpace (pSym '=') *> skipSpace pExpr) <* (pSym ';' *> pSpaces)
     <|>
     assign <$> skipSpace pIdent <*> (skipSpace (pSym '=') *> skipSpace pExpr) <* (pSym ';' *> pSpaces)
-    <|>
-    declAndAssign <$> skipSpace pIdent <*> (skipSpace (pSym '=') *> skipSpace pExpr) <* (pSym ';' *> pSpaces)
     <|>
     while <$> condParser "while"
     <|>
