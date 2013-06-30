@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 -- |
 -- Module      : NXT.Types
 -- Copyright   : Alexander Thiemann <mail@agrafix.net>
@@ -17,13 +17,13 @@ import Control.Monad.RWS (RWST)
 type FunM = RWST String [Stmt] Int TopM
 type TopM = RWST () [FunDefinition] Int IO
 
-data Stmt where
-   If :: T -> [Stmt] -> [Stmt] -> Stmt
-   While :: T -> [Stmt] -> Stmt
-   DeclVar :: String -> T -> Stmt
-   AssignVar :: T -> T -> Stmt
-   Eval :: T -> Stmt
-   FunReturn :: T -> Stmt
+data Stmt
+   = If T [Stmt] [Stmt]
+   | While T [Stmt]
+   | DeclVar String T
+   | AssignVar T T
+   | Eval T
+   | FunReturn T
 
 data FunDefinition
    = FunDefinition
@@ -38,21 +38,21 @@ data BinOpT
    = BAdd | BSub | BMul | BDiv | BEq | BNEq | BLt | BSt | BLEq | BSEq | BAnd | BOr
     deriving (Show, Eq, Typeable)
 
-data T where
-    Void :: T
-    FunP :: String -> T
-    VarP :: String -> T
-    Lit  :: Int -> T
-    Rat  :: Float -> T
-    StrLit :: String -> T
-    BoolLit :: Bool -> T
-    BinOp :: BinOpT -> T -> T -> T
-    CastOp :: String -> T -> T
-    FunCall :: String -> [T] -> T
+data T
+   = Void
+   | FunP String
+   | VarP String
+   | Lit Int
+   | Rat Float
+   | StrLit String
+   | BoolLit Bool
+   | BinOp BinOpT T T
+   | CastOp String T
+   | FunCall String [T]
     deriving (Typeable)
 
 -- | wrapper for types
-data V a = Typeable a => V T deriving (Typeable)
+data V a = V T deriving (Typeable)
 
 pack :: (Typeable a) => T -> V a
 pack = V

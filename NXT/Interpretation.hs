@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, DeriveDataTypeable, DoAndIfThenElse #-}
+{-# LANGUAGE DeriveDataTypeable, DoAndIfThenElse #-}
 -- |
 -- Module      : NXT.Interpretation
 -- Copyright   : Alexander Thiemann <mail@agrafix.net>

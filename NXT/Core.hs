@@ -1,4 +1,3 @@
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -337,6 +336,6 @@ mkStdLib =
        tell [FunDefinition "cast2float" "float" [DeclVar "int" var2] body2]
 
 -- | Define a function as main task
-setMain :: V a -> TopM ()
+setMain :: (Typeable a) => V a -> TopM ()
 setMain fp@(V (FunP name)) =
     tell [FunDefinition "main" "task" [] [Eval $ unpack $ callF fp]]
