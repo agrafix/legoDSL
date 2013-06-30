@@ -14,7 +14,7 @@ Homepage:               https://github.com/agrafix/legoDSL
 Bug-reports:            https://github.com/agrafix/legoDSL/issues
 
 Library
-   Build-Depends:     base >= 3 && < 5, mtl, unordered-containers, resourcet >= 0.4.4, stm >= 2.4.2
+   Build-Depends:     base >= 3 && < 5, mtl, unordered-containers, resourcet >= 0.4.4, stm >= 2.4.2, text, uu-parsinglib >= 2.7.4
    Exposed-modules:   NXT.Core, NXT.Interpretation, NXT.Common, NXT.Motor, NXT.Sensor
 
 Executable ExampleRun
@@ -23,6 +23,9 @@ Executable ExampleRun
 Executable ExampleVM
    Main-Is: ExampleVM.hs
    ghc-options:       -threaded
+
+Executable Parser
+   Main-Is: Parser.hs
 
 Source-repository head
    Type:                 git
