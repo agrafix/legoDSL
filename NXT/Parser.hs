@@ -37,9 +37,9 @@ pFun =
 
 pStmt :: Parser [Stmt]
 pStmt =
-    decl <$> (skipSpace (pToken "var") *> skipSpace pIdent) <* (pSym ';' *> pSpaces)
-    <|>
     declAndAssign <$> (skipSpace (pToken "var") *> skipSpace pIdent) <*> (skipSpace (pSym '=') *> skipSpace pExpr) <* (pSym ';' *> pSpaces)
+    <|>
+    decl <$> (skipSpace (pToken "var") *> skipSpace pIdent) <* (pSym ';' *> pSpaces)
     <|>
     assign <$> skipSpace pIdent <*> (skipSpace (pSym '=') *> skipSpace pExpr) <* (pSym ';' *> pSpaces)
     <|>
@@ -68,52 +68,55 @@ mkIf (cond, body) (x:xs) elseBody =
 mkIf (cond, body) [] elseBody =
     If cond body elseBody
 
-pMTerm :: Parser T
-pMTerm =
-    quickFun BMul <$> (skipSpace pExpr <* pSym '*') <*> skipSpace pExpr
-    <|>
-    quickFun BDiv <$>  (skipSpace pExpr <* pSym '/') <*> skipSpace pExpr
-    <|>
-    pExpr
-
 pMExpr :: Parser T
 pMExpr =
-    quickFun BAdd <$> (skipSpace pMTerm <* pSym '+') <*> skipSpace pMTerm
-    <|>
-    quickFun BSub <$> (skipSpace pMTerm <* pSym '-') <*> skipSpace pMTerm
-    <|>
-    quickFun BEq <$> (skipSpace pMTerm <* pSym '=' <* pSym '=') <*> skipSpace pMTerm
-    <|>
-    quickFun BNEq <$> (skipSpace pMTerm <* pSym '!' <* pSym '=') <*> skipSpace pMTerm
-    <|>
-    quickFun BSEq <$> (skipSpace pMTerm <* pSym '<' <* pSym '=') <*> skipSpace pMTerm
-    <|>
-    quickFun BSEq <$> (skipSpace pMTerm <* pSym '>' <* pSym '=') <*> skipSpace pMTerm
-    <|>
-    quickFun BSt <$> (skipSpace pMTerm <* pSym '<') <*> skipSpace pMTerm
-    <|>
-    quickFun BLt <$> (skipSpace pMTerm <* pSym '>') <*> skipSpace pMTerm
+    pInternal
+    where
+      pInternal = foldr pChainl pFactor [cmpops, addops, mulops]
+      pFactor = pNoMath <|> pParens pInternal
 
-quickFun name a b =
-    BinOp name a b
+      cmpops = anyOp [ ((qFun BEq), pSyms '=' '=')
+                     , ((qFun BLt), pSym '>')
+                     , ((qFun BSt), pSym '<')
+                     , ((qFun BLEq),pSyms '>' '=')
+                     , ((qFun BSEq),pSyms '<' '=')
+                     , ((qFun BNEq),pSyms '!' '=')
+                     ]
 
-pMFact =
-    pParens pMExpr
+      addops = anyOp [ ((qFun BAdd),pSym '+')
+                     , ((qFun BSub),pSym '-')
+                     ]
+      mulops = anyOp [ ((qFun BMul),pSym '*')
+                     , ((qFun BDiv),pSym '/')
+                     , ((qFun BOr), pSyms '|' '|')
+                     , ((qFun BAnd),pSyms '&' '&')
+                     ]
+
+      pSyms a b = pSym a *> pSym b
+
+      pOp (sem, p) = sem <$ p
+      anyOp = pChoice . map pOp
+      pChoice = foldr (<|>) pFail
+
+      qFun x a b = BinOp x a b
 
 pExpr =
+    pNoMath
+    <|>
+    pMExpr
+
+pNoMath =
+    (VarP . T.unpack) <$> pIdent
+    <|>
     fc <$> pIdent <*> tupleParser pExpr
-    <|>
-    pMFact
-    <|>
-    StrLit <$> pQuotedString
-    <|>
-    (Rat . fromRational . toRational) <$> pDouble
     <|>
     BoolLit <$> pEnum
     <|>
     Lit <$> pInteger
     <|>
-    (VarP . T.unpack) <$> pIdent
+    (Rat . fromRational . toRational) <$> pDouble
+    <|>
+    StrLit <$> pQuotedString
     where
       fc n args = FunCall (T.unpack n) args
 

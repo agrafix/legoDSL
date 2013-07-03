@@ -24,17 +24,9 @@ setMotorVal sensorVal =
        left $= motorVal
        right $= ((-1.0) * motorVal + 1.0)
 
-       whenBlock left right
-       whenBlock right left
-
        vCallF2 onFwd _OUT_B_ $ castInt $ left * 75.0
        vCallF2 onFwd _OUT_C_ $ castInt $ right * 75.0
     where
-      whenBlock a b =
-          when ((a <= 0.2) && (a >= 0.8)) $
-            do a $= (-0.5)
-               b $= 0.5
-
       range = white - black
 
 

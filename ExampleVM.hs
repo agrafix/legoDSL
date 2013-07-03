@@ -21,7 +21,7 @@ main =
                       ++ (show expect) ++ ". Got: " ++ (show got)
 
       setLoop t@(envQ, motor) =
-          do atomically $ writeTBQueue envQ (RealEnv 55 55)
+          do atomically $ writeTBQueue envQ (RealEnv 55 0)
              threadDelay 100000 -- 10 ms
              assertMotor "light = 55" motor (37, 37)
 
