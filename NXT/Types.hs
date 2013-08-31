@@ -19,14 +19,11 @@ import Control.Monad.RWS (RWST)
 type FunM = RWST String [Stmt] Int TopM
 type TopM = RWST () [FunDefinition] Int IO
 
-data Stmt
-   = If T [Stmt] [Stmt]
-   | While T [Stmt]
-   | DeclVar String T
-   | AssignVar T T
-   | Eval T
-   | FunReturn T
-   deriving Show
+data Definition
+   = PFun FunDefinition
+   | PConst ConstDefinition
+   | PLib LibCallDefinition
+   deriving (Show)
 
 data FunDefinition
    = FunDefinition
@@ -37,6 +34,29 @@ data FunDefinition
    }
    deriving (Show)
 
+data ConstDefinition
+   = ConstDefinition
+   { cd_name :: String
+   , cd_value :: T
+   }
+   deriving (Show)
+
+data LibCallDefinition
+   = LibCallDefinition
+   { lcd_name :: String
+   , lcd_libType :: NXTType
+   , lcd_libArgs :: [NXTType]
+   }
+   deriving (Show)
+
+data Stmt
+   = If T [Stmt] [Stmt]
+   | While T [Stmt]
+   | DeclVar String T
+   | AssignVar T T
+   | Eval T
+   | FunReturn T
+   deriving Show
 
 data BinOpT
    = BAdd | BSub | BMul | BDiv | BEq | BNEq | BLt | BSt | BLEq | BSEq | BAnd | BOr
@@ -97,9 +117,17 @@ prettyT (BinOp op x y) = "(" ++ (prettyT x) ++ (prettyOp op) ++ (prettyT y) ++ "
 prettyT (FunCall name args) = name ++ "(" ++ (intercalate ", " $ map prettyT args) ++ ")"
 
 prettyFD :: FunDefinition -> String
-prettyFD (FunDefinition name ty args body) =
-    ty ++ " " ++ name ++ "(" ++ arglist ++ ") {" ++ (concatMap prettyStmt body) ++ "}"
+prettyFD =
+    prettyFD' True
+
+prettyFD' :: Bool -> FunDefinition -> String
+prettyFD' withBody (FunDefinition name ty args body) =
+    ty ++ " " ++ name ++ "(" ++ arglist ++ ")" ++ bodyStr
     where
+      bodyStr =
+          if withBody
+          then " { " ++ (concatMap prettyStmt body) ++ " }"
+          else ";"
       arglist = intercalate ", " $ map (\(DeclVar ty arg) -> (ty ++ " " ++ (prettyT arg))) args
 
 prettyStmt :: Stmt -> String
@@ -108,7 +136,7 @@ prettyStmt (If cond t f) =
     ++ (concatMap prettyStmt t) ++ "}"
     ++ (case f of
           [] -> ""
-          _ -> "else { " ++ (concatMap prettyStmt f) ++ "}"
+          _ -> " else { " ++ (concatMap prettyStmt f) ++ "}"
        )
 prettyStmt (While cond loop) =
     "while (" ++ (prettyT cond) ++ ") {"
@@ -123,3 +151,18 @@ prettyStmt (FunReturn val) =
     "return " ++ prettyT val ++ ";"
 
 prettyStmt _ = error "Error: Invalid syntax tree"
+
+data NXTType
+   = NXTString
+   | NXTBool
+   | NXTInt
+   | NXTFloat
+   | NXTVoid
+   deriving (Show, Eq, Enum)
+
+toCName :: NXTType -> String
+toCName NXTString = "string"
+toCName NXTBool = "bool"
+toCName NXTInt = "int"
+toCName NXTFloat = "float"
+toCName NXTVoid = "void"

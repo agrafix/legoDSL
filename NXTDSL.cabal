@@ -24,8 +24,8 @@ Executable ExampleVM
    Main-Is: ExampleVM.hs
    ghc-options:       -threaded
 
-Executable Parser
-   Main-Is: Parser.hs
+Executable Compiler
+   Main-Is: Compiler.hs
 
 Source-repository head
    Type:                 git

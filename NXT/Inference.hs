@@ -8,34 +8,17 @@ import qualified Data.HashMap.Strict as HM
 import Data.IORef
 import Control.Monad
 
--- allowed types:
--- string, bool, int, float, void
-
-data NXTType
-   = NXTString
-   | NXTBool
-   | NXTInt
-   | NXTFloat
-   | NXTVoid
-   deriving (Show, Eq)
-
-toCName :: NXTType -> String
-toCName NXTString = "string"
-toCName NXTBool = "bool"
-toCName NXTInt = "int"
-toCName NXTFloat = "float"
-toCName NXTVoid = "void"
-
 data EnvContainer
    = EnvContainer
    { env_funs :: HM.HashMap String (IORef (Maybe (NXTType, [NXTType]), FunDefinition))
    , env_vars :: HM.HashMap String (IORef (Maybe NXTType))
+   , env_const :: HM.HashMap String (T, NXTType)
    }
 
 type Env = IORef EnvContainer
 
 emptyEnv :: IO Env
-emptyEnv = newIORef $ EnvContainer HM.empty HM.empty
+emptyEnv = newIORef $ EnvContainer HM.empty HM.empty HM.empty
 
 declVar :: Env -> String -> IO ()
 declVar envR name =
@@ -52,7 +35,11 @@ getVarType envR name =
     do container <- readIORef envR
        case HM.lookup name (env_vars container) of
          Nothing ->
-             error $ "Variable `" ++ name ++ "` not declared!"
+             case HM.lookup name (env_const container) of
+               Just (_, v) ->
+                   return $ Just v
+               Nothing ->
+                   error $ "Variable `" ++ name ++ "` not declared!"
          Just varRef ->
              readIORef varRef
 
@@ -82,15 +69,24 @@ setFunType envR name ty =
              error $ "Function `" ++ name ++ "` not defined."
          Just funRef ->
              do (_, funDef) <- readIORef funRef
-                (_, newBody) <- foldM fixStmt ([], []) $ fd_body funDef
+                newBody <- fixStmts $ fd_body funDef
                 (argTys, newArgs) <- foldM fixStmt ([], []) $ fd_args funDef
                 let newDef = funDef { fd_body = newBody
-                                    , fd_args = newArgs
-                                    , fd_type = toCName ty
+                                    , fd_args = reverse $ newArgs
+                                    , fd_type = if name == "main"
+                                                then (if ty == NXTVoid
+                                                      then "task"
+                                                      else error "main function is not void!"
+                                                     )
+                                                else toCName ty
                                     }
                 writeIORef funRef $ (Just (ty, argTys), newDef)
 
        where
+         fixStmts x =
+             do (_, x') <- foldM fixStmt ([], []) x
+                return $ reverse x'
+
          fixStmt :: ([NXTType], [Stmt]) -> Stmt -> IO ([NXTType], [Stmt])
          fixStmt (inferred, allStmt) (DeclVar _ (VarP varname)) =
              do t <- getVarType envR varname
@@ -98,20 +94,83 @@ setFunType envR name ty =
                   Nothing ->
                       error $ "Variable `" ++ varname ++ "` in function `" ++ name ++ "` unused! Remove it."
                   Just ty ->
-                      return $ (inferred ++ [ty], allStmt ++ [DeclVar (toCName ty) (VarP varname)])
-         fixStmt (inferred, allStmt) stmt =
-             return $ (inferred, allStmt ++ [stmt])
+                      return $ (ty : inferred, DeclVar (toCName ty) (VarP varname) : allStmt)
+
+         fixStmt (inferred, allStmt) (If t a b) =
+             do t' <- fixT t
+                a' <- fixStmts a
+                b' <- fixStmts b
+                return $ (inferred, If t' a' b' : allStmt)
+
+         fixStmt (inferred, allStmt) (While t a) =
+             do t' <- fixT t
+                a' <- fixStmts a
+                return $ (inferred, While t' a' : allStmt)
+
+         fixStmt (inferred, allStmt) (AssignVar k v) =
+             do v' <- fixT v
+                return $ (inferred, AssignVar k v' : allStmt)
+
+         fixStmt (inferred, allStmt) (Eval t) =
+             do t' <- fixT t
+                return $ (inferred, Eval t' : allStmt)
+
+         fixStmt (inferred, allStmt) (FunReturn t) =
+             do t' <- fixT t
+                return $ (inferred, FunReturn t' : allStmt)
+
+         fixT :: T -> IO T
+         fixT v@(VarP name) =
+             do m <- readIORef envR
+                case HM.lookup name (env_const m) of
+                  Just (expr, _) -> return $ expr
+                  Nothing -> return $ v
+         fixT (BinOp ty t1 t2) =
+             do t1' <- fixT t1
+                t2' <- fixT t2
+                return $ BinOp ty t1' t2'
+         fixT (FunCall name args) =
+             do args' <- mapM fixT args
+                return $ FunCall name args'
+         fixT e = return e
 
 copyFunEnv :: Env -> IO Env
 copyFunEnv envR =
     do m <- readIORef envR
-       newIORef $ EnvContainer (env_funs m) HM.empty
+       newIORef $ EnvContainer (env_funs m) HM.empty (env_const m)
 
-runInference :: [FunDefinition] -> IO [FunDefinition]
-runInference funs =
+addConst :: Env -> String -> T -> NXTType -> IO ()
+addConst envR name val ty =
+    modifyIORef envR $ \c -> c { env_const = HM.insert name (val, ty) (env_const c) }
+
+runInference :: [Definition] -> IO [FunDefinition]
+runInference defs =
     do envR <- emptyEnv
        mapM_ (declFun envR) funs
+       mapM_ (mkConst envR) consts
+       mapM_ (mkLibDef envR) libDefs
        mapM (funInference envR) funs
+    where
+      mkLibDef envR (LibCallDefinition name extType argTypes) =
+          do let fakeFunDef = FunDefinition name "" [] []
+                 typeInfo = Just (extType, argTypes)
+             ref <- newIORef (typeInfo, fakeFunDef)
+             modifyIORef envR (\c -> c { env_funs = HM.insert name ref (env_funs c) })
+
+      mkConst envR (ConstDefinition name expr) =
+          do t <- exprInference envR expr
+             addConst envR name expr t
+
+      (libDefs, consts, funs) =
+          foldl (\(lib, const, fun) def ->
+                     case def of
+                       PFun f ->
+                           (lib, const, f : fun)
+                       PConst c ->
+                           (lib, c : const, fun)
+                       PLib l ->
+                           (l : lib, const, fun)
+                ) ([], [], []) defs
 
 funInference :: Env -> FunDefinition -> IO FunDefinition
 funInference globalEnvR fun =
@@ -161,77 +220,75 @@ funInference' globalEnvR fun =
              setFunType envR (fd_name fun) r
              return ()
 
-      exprInference :: Env -> T -> IO NXTType
-      exprInference envR Void =
-          return NXTVoid
-      exprInference envR (Lit _) =
-          return NXTInt
-      exprInference envR (Rat _) =
-          return NXTFloat
-      exprInference envR (StrLit _) =
-          return NXTString
-      exprInference envR (BoolLit _) =
-          return NXTBool
-      exprInference envR (VarP name) =
-          do varT <- getVarType envR name
-             case varT of
-               Nothing ->
-                   error $ "Variable `" ++ name ++ "` used before assigned value."
-               Just t ->
-                   return t
-      exprInference envR (FunCall funName args) =
-          do (_, myDef) <- getFunType envR funName
-             -- run inference for function
-             _ <- funInference envR myDef
-             (Just (myType, argTypes), _) <- getFunType envR funName
-             -- type check
-             callTypes <- mapM (exprInference envR) args
-             when (callTypes /= argTypes) $ error $ "Function " ++ funName ++ " called with args of wrong type."
-             return myType
+exprInference :: Env -> T -> IO NXTType
+exprInference envR Void =
+    return NXTVoid
+exprInference envR (Lit _) =
+    return NXTInt
+exprInference envR (Rat _) =
+    return NXTFloat
+exprInference envR (StrLit _) =
+    return NXTString
+exprInference envR (BoolLit _) =
+    return NXTBool
+exprInference envR (VarP name) =
+    do varT <- getVarType envR name
+       case varT of
+         Nothing ->
+             error $ "Variable `" ++ name ++ "` used before assigned value."
+         Just t ->
+             return t
+exprInference envR (FunCall funName args) =
+    do (_, myDef) <- getFunType envR funName
+       -- run inference for function
+       _ <- funInference envR myDef
+       (Just (myType, argTypes), _) <- getFunType envR funName
+       -- type check
+       callTypes <- mapM (exprInference envR) args
+       when (callTypes /= argTypes) $ error $ "Function " ++ funName ++ " called with args of wrong type."
+       return myType
 
-      exprInference envR (BinOp opType left right) =
-          case HM.lookup opType opTable of
-            Nothing ->
-                error $ "Unkown operator : " ++ show opType
-            Just possibleVals ->
-                do let isAllowed t =
-                           if t `elem` possibleVals
-                           then t
-                           else error $ "In the BinOp " ++ (show opType) ++ " there is a type error!"
-                       checkInferReturn ty (VarP varname) =
-                           do setVarType envR varname ty
-                              return $ isAllowed ty
+exprInference envR (BinOp opType left right) =
+    case HM.lookup opType opTable of
+      Nothing ->
+          error $ "Unkown operator : " ++ show opType
+      Just possibleVals ->
+          do let isAllowed t =
+                     if t `elem` possibleVals
+                     then t
+                     else error $ "In the BinOp " ++ (show opType) ++ " there is a type error!"
+                 checkInferReturn ty (VarP varname) =
+                     do setVarType envR varname ty
+                        return $ isAllowed ty
 
-                   mlType <- safeInference envR left
-                   mrType <- safeInference envR right
+             mlType <- safeInference envR left
+             mrType <- safeInference envR right
 
-                   case (mlType, mrType) of
-                     (Just a, Just b) ->
-                         if a == b
-                         then return $ isAllowed a
-                         else error $ "BinOp (" ++ (show opType) ++") type error: " ++ (show a) ++ " and " ++ (show b)
-                     (Nothing, Just b) ->
-                         checkInferReturn b left
-                     (Just a, Nothing) ->
-                         checkInferReturn a right
-                     (Nothing, Nothing) ->
-                         do checkInferReturn (head possibleVals) left
-                            checkInferReturn (head possibleVals) right
-
-
-      exprInference envR expr =
-          error $ "Can't do inference for " ++ (show expr)
-
-      safeInference :: Env -> T -> IO (Maybe NXTType)
-      safeInference envR (VarP name) =
-          getVarType envR name
-
-      safeInference envR expr =
-          do x <- exprInference envR expr
-             return $ Just x
+             case (mlType, mrType) of
+               (Just a, Just b) ->
+                   if a == b
+                   then return $ isAllowed a
+                   else error $ "BinOp (" ++ (show opType) ++") type error: " ++ (show a) ++ " and " ++ (show b)
+               (Nothing, Just b) ->
+                   checkInferReturn b left
+               (Just a, Nothing) ->
+                   checkInferReturn a right
+               (Nothing, Nothing) ->
+                   do checkInferReturn (head possibleVals) left
+                      checkInferReturn (head possibleVals) right
 
 
--- BAdd | BSub | BMul | BDiv | BEq | BNEq | BLt | BSt | BLEq | BSEq | BAnd | BOr
+exprInference envR expr =
+    error $ "Can't do inference for " ++ (show expr)
+
+safeInference :: Env -> T -> IO (Maybe NXTType)
+safeInference envR (VarP name) =
+    getVarType envR name
+
+safeInference envR expr =
+    do x <- exprInference envR expr
+       return $ Just x
+
 opTable =
     HM.fromList $
     [ ( BAdd, [ NXTInt, NXTFloat ] )
@@ -247,28 +304,3 @@ opTable =
     , ( BAnd, [ NXTBool ])
     , ( BOr, [ NXTBool ])
     ]
-
-{-
-data Stmt
-   = If T [Stmt] [Stmt]
-   | While T [Stmt]
-   | DeclVar String T
-   | AssignVar T T
-   | Eval T
-   | FunReturn T
-   deriving Show
--}
-
-{-
-data T
-   = Void
-   | FunP String
-   | VarP String
-   | Lit Int
-   | Rat Float
-   | StrLit String
-   | BoolLit Bool
-   | BinOp BinOpT T T
-   | CastOp String T
-   | FunCall String [T]
-    deriving (Typeable, Show)-}

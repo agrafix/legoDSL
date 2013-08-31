@@ -21,14 +21,24 @@ import Control.Applicative
 import Prelude hiding (takeWhile)
 
 -- | Helpers
-parseFile :: FilePath -> IO (Either String [FunDefinition])
+parseFile :: FilePath -> IO (Either String [Definition])
 parseFile fname =
     do inp <- readFile fname
        return $ parseOnly pFullParser (T.pack inp)
 
 -- | Program parser
 pFullParser =
-    ((stripSpace $ many1 pFun) <* endOfInput)
+    ((stripSpace $ many1 pDef) <* endOfInput)
+
+pDef =
+    pConst <|>
+    pLibDef <|>
+    pFun
+
+pConst =
+    mk <$> ((string "const" *> space_) *> pName <* (char '=' <* optSpace_)) <*> (stripSpace pExpr <* pStmtEnd)
+    where
+      mk a b = PConst $ ConstDefinition (T.unpack a) b
 
 pFun =
     mk <$> ((string "function" *> space_) *> pName)
@@ -37,8 +47,23 @@ pFun =
        <* optSpace_
     where
       mk name args body =
-          FunDefinition (T.unpack name) "dynamic" (map (\x -> DeclVar "dynamic" (VarP $ T.unpack x)) args) $ concat body
+          PFun $ FunDefinition (T.unpack name) "dynamic" (map (\x -> DeclVar "dynamic" (VarP $ T.unpack x)) args) $ concat body
 
+pLibDef =
+    mk <$> ((string "libDef" *> space_) *> (pTy <* char ':'))
+       <*> pName
+       <*> tupleP pTy
+       <* pStmtEnd
+    where
+      mk extType name extArgTys =
+          PLib $ LibCallDefinition (T.unpack name) extType extArgTys
+
+pTy =
+    const NXTString <$> string "string" <|>
+    const NXTBool <$> string "bool" <|>
+    const NXTInt <$> string "int" <|>
+    const NXTFloat <$> string "float" <|>
+    const NXTVoid <$> string "void"
 
 pStmt = stripSpace pStmt'
 
@@ -177,7 +202,7 @@ optSpace_ = skipWhile isSpace
 between :: Parser a -> Parser b -> Parser c -> Parser c
 between left right main = left *> main <* right
 
-skipWhile1 pred = () <$ takeWhile1 pred
+skipWhile1 pred = (() <$ takeWhile1 pred) <?> "skipWhile1"
 
 identP :: (Char -> Bool) -> (Char -> Bool) -> Parser T.Text
 identP first rest = T.cons <$> satisfy first <*> takeWhile rest
