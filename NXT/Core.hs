@@ -33,7 +33,6 @@ module NXT.Core
 where
 
 import NXT.Types
-import NXT.Interpretation
 
 import Data.List
 import Data.Typeable

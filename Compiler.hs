@@ -1,6 +1,6 @@
-import qualified NXT.AttoParser as P
 import NXT.Types
-import NXT.Inference
+import NXT.Compiler.Inference
+import qualified NXT.Parser.AttoParser as P
 
 import System.Environment
 

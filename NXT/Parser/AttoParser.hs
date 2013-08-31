@@ -1,16 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
-module NXT.AttoParser
+module NXT.Parser.AttoParser
     ( parseFile
     , pFullParser
     )
 where
 
 import NXT.Types
+import qualified NXT.Parser.AttoExpr as E
 
 import GHC.Float
 import Data.Attoparsec.Text
-import qualified NXT.AttoExpr as E
 import Data.Char (isSpace, isAlpha, isAlphaNum)
 import qualified Data.Text as T
 import Data.Maybe

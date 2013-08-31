@@ -8,7 +8,7 @@
 -- Stability   : experimental
 -- Portability : non-portable (GHC extensions)
 --
-module NXT.Interpretation
+module NXT.VM.Interpretation
     ( runVM
     , RealEnv (..)
     , MotorState(..)

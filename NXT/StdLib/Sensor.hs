@@ -8,9 +8,10 @@
 -- Stability   : experimental
 -- Portability : non-portable (GHC extensions)
 --
-module NXT.Sensor where
+module NXT.Stdlib.Sensor where
 
 import NXT.Core
+
 import Data.Typeable
 
 data Sensor = Sensor deriving (Typeable)

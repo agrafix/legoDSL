@@ -1,4 +1,4 @@
-module NXT.Inference
+module NXT.Compiler.Inference
     ( runInference )
 where
 

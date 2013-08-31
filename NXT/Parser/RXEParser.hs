@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module NXT.RXEParser where
+module NXT.Parser.RXEParser where
 
 import qualified Data.ByteString as B
 import Data.Binary.Strict.BitGet

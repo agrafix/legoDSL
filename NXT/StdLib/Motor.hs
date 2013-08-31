@@ -8,7 +8,7 @@
 -- Stability   : experimental
 -- Portability : non-portable (GHC extensions)
 --
-module NXT.Motor where
+module NXT.Stdlib.Motor where
 
 import NXT.Core
 import Data.Typeable

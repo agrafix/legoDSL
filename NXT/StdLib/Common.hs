@@ -8,9 +8,10 @@
 -- Stability   : experimental
 -- Portability : non-portable (GHC extensions)
 --
-module NXT.Common where
+module NXT.Stdlib.Common where
 
 import NXT.Core
+
 import Data.Typeable
 
 wait :: V (V Integer -> V ())

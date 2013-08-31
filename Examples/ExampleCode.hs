@@ -3,9 +3,9 @@ module ExampleCode
 ) where
 
 import NXT.Core
-import NXT.Common
-import NXT.Motor
-import NXT.Sensor
+import NXT.Stdlib.Common
+import NXT.Stdlib.Motor
+import NXT.Stdlib.Sensor
 
 import Prelude hiding ((<), (>), (<=), (>=), (==), (/=), (&&), (||))
 

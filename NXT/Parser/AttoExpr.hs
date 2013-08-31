@@ -14,7 +14,7 @@
 --
 -----------------------------------------------------------------------------
 
-module NXT.AttoExpr
+module NXT.Parser.AttoExpr
     ( Assoc(..), Operator(..), OperatorTable
     , buildExpressionParser
     ) where

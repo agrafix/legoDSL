@@ -15,16 +15,9 @@ Bug-reports:            https://github.com/agrafix/legoDSL/issues
 
 Library
    Build-Depends:     base >= 3 && < 5, mtl, unordered-containers, resourcet >= 0.4.4, stm >= 2.4.2, text, attoparsec >= 0.10.4.0, hashable >= 1.2.0.5
-   Exposed-modules:   NXT.Core, NXT.Interpretation, NXT.Common, NXT.Motor, NXT.Sensor
+   Exposed-modules:   NXT.Core, NXT.VM.Interpretation, NXT.Stdlib.Common, NXT.Stdlib.Motor, NXT.Stdlib.Sensor
 
-Executable ExampleRun
-   Main-Is: Example.hs
-
-Executable ExampleVM
-   Main-Is: ExampleVM.hs
-   ghc-options:       -threaded
-
-Executable Compiler
+Executable legoDSL
    Main-Is: Compiler.hs
 
 Source-repository head

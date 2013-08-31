@@ -1,5 +1,5 @@
 import ExampleCode
-import NXT.Interpretation
+import NXT.VM.Interpretation
 
 import Control.Monad
 import Control.Monad.Trans
