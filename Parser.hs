@@ -1,5 +1,6 @@
 import qualified NXT.AttoParser as P
 import NXT.Types
+import NXT.Inference
 
 import System.Environment
 
@@ -15,4 +16,5 @@ parseFile f =
          Left errorMsg ->
              putStrLn $ "Error: " ++ errorMsg
          Right funDefs ->
-             mapM_ (\v -> putStrLn (prettyFD v)) funDefs
+             do inferredDefs <- runInference funDefs
+                mapM_ (\v -> putStrLn (prettyFD v)) inferredDefs

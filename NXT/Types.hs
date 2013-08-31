@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, DeriveGeneric #-}
 -- |
 -- Module      : NXT.Types
 -- Copyright   : Alexander Thiemann <mail@agrafix.net>
@@ -12,6 +12,8 @@ module NXT.Types where
 
 import Data.Typeable
 import Data.List (intercalate)
+import GHC.Generics
+import Data.Hashable
 import Control.Monad.RWS (RWST)
 
 type FunM = RWST String [Stmt] Int TopM
@@ -24,6 +26,7 @@ data Stmt
    | AssignVar T T
    | Eval T
    | FunReturn T
+   deriving Show
 
 data FunDefinition
    = FunDefinition
@@ -32,11 +35,14 @@ data FunDefinition
    , fd_args :: [Stmt]
    , fd_body :: [Stmt]
    }
+   deriving (Show)
 
 
 data BinOpT
    = BAdd | BSub | BMul | BDiv | BEq | BNEq | BLt | BSt | BLEq | BSEq | BAnd | BOr
-    deriving (Show, Eq, Typeable)
+    deriving (Show, Eq, Typeable, Enum, Generic)
+
+instance Hashable BinOpT
 
 data T
    = Void
@@ -49,7 +55,7 @@ data T
    | BinOp BinOpT T T
    | CastOp String T
    | FunCall String [T]
-    deriving (Typeable)
+    deriving (Typeable, Show)
 
 -- | wrapper for types
 data V a = V T deriving (Typeable)
