@@ -1,5 +1,5 @@
 Name:                NXTDSL
-Version:             0.3
+Version:             0.4
 Synopsis:            Generate NXC Code from DSL
 Description:         Typesafe code generation for the LEGO-NXT
 License:             BSD3
