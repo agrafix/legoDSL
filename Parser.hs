@@ -1,4 +1,4 @@
-import NXT.Parser
+import qualified NXT.AttoParser as P
 import NXT.Types
 
 import System.Environment
@@ -10,5 +10,9 @@ main =
          _ -> putStrLn "USAGE: ./Parser [filename]"
 
 parseFile f =
-    do r <- runFile pProg f
-       mapM_ (\v -> putStrLn (prettyFD v)) r
+    do pResult <- P.parseFile f
+       case pResult of
+         Left errorMsg ->
+             putStrLn $ "Error: " ++ errorMsg
+         Right funDefs ->
+             mapM_ (\v -> putStrLn (prettyFD v)) funDefs
